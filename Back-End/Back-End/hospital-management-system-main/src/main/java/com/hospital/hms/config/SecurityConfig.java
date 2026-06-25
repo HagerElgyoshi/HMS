@@ -33,6 +33,13 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
+    /**
+     * Comma-separated list of allowed CORS origin patterns, externalized via
+     * the CORS_ALLOWED_ORIGINS environment variable (see .env.production).
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins}")
+    private String corsAllowedOrigins;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -54,7 +61,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:*"));
+        // Origins come from configuration (CORS_ALLOWED_ORIGINS). Split on commas
+        // and trim so a single env value can carry multiple origins.
+        List<String> origins = java.util.Arrays.stream(corsAllowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

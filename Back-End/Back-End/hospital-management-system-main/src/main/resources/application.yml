@@ -1,32 +1,64 @@
+# =============================================================================
+#  Hospital Management System — application.yml
+#
+#  CONFIGURATION POLICY (Phase 2 — Configuration Externalization):
+#  Every environment-dependent value is read from an ENVIRONMENT VARIABLE.
+#  The single source of truth for those variables is `.env.production`
+#  (at the repository root), injected into the process environment by the
+#  runtime (e.g. Docker Compose `env_file`, `export $(...)`, K8s, etc.).
+#
+#  Conventions used below:
+#    ${VAR}            → REQUIRED. No fallback. Used for secrets / connection.
+#    ${VAR:default}    → Optional non-sensitive operational default only.
+#  No production secrets or hostnames are hardcoded in this file.
+# =============================================================================
+
+server:
+  port: ${SERVER_PORT:8080}
+
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:production}
+
   datasource:
-    url: jdbc:mysql://localhost:3306/hms_backend
-    username: root
-    password: "root"
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${JPA_FORMAT_SQL:false}
+
   servlet:
     multipart:
       enabled: true
-      max-file-size: 20MB
-      max-request-size: 25MB
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:20MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:25MB}
 
 jwt:
-  secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"
-  access-token-expiration: 900000        # 15 minutes (ms)
-  refresh-token-expiration: 604800000    # 7 days     (ms)
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION}
+
+# ── Application-specific externalized settings ───────────────────────────────
+app:
+  # Comma-separated list of allowed CORS origins (patterns supported).
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  # Directory (relative or absolute) where uploaded report files are stored.
+  upload:
+    directory: ${UPLOAD_DIRECTORY:uploads/reports/}
 
 logging:
   level:
-    root: INFO
-    com.hospital.hms: DEBUG
+    root: ${LOGGING_LEVEL_ROOT:INFO}
+    com.hospital.hms: ${LOGGING_LEVEL_APP:INFO}
 
 springdoc:
   api-docs:

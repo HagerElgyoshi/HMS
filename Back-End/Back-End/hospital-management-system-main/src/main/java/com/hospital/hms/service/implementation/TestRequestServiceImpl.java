@@ -43,7 +43,13 @@ public class TestRequestServiceImpl implements TestRequestService {
     private final NotificationService notificationService;
     private final InvoiceService invoiceService;
 
-    private static final String UPLOAD_DIR = "uploads/reports/";
+    /**
+     * Directory where uploaded report files are stored.
+     * Externalized via UPLOAD_DIRECTORY (see .env.production); defaults to the
+     * previous value to preserve behavior when the variable is absent.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.upload.directory:uploads/reports/}")
+    private String uploadDir;
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -295,7 +301,7 @@ public class TestRequestServiceImpl implements TestRequestService {
     public String uploadReport(Long testRequestId, MultipartFile file) {
         TestRequest tr = getEntity(testRequestId);
         try {
-            Path uploadPath = Paths.get(UPLOAD_DIR);
+            Path uploadPath = Paths.get(uploadDir);
             if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
 
             String original  = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "report");
@@ -304,7 +310,10 @@ public class TestRequestServiceImpl implements TestRequestService {
 
             Files.copy(file.getInputStream(), uploadPath.resolve(stored), StandardCopyOption.REPLACE_EXISTING);
 
-            String url = "/" + UPLOAD_DIR + stored;
+            // Build a normalized public URL: "/<uploadDir>/<stored>" with exactly
+            // one separator regardless of trailing slash in the configured value.
+            String normalizedDir = uploadDir.replaceAll("/+$", "");
+            String url = "/" + normalizedDir + "/" + stored;
             tr.setReportUrl(url);
             testRequestRepository.save(tr);
             log.info("Report uploaded for test {}: {}", testRequestId, url);

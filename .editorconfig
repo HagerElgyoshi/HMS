@@ -1,0 +1,43 @@
+# =============================================================================
+#  EditorConfig — consistent coding styles across editors and IDEs.
+#  https://editorconfig.org
+# =============================================================================
+root = true
+
+# ---- Defaults for all files ----------------------------------------------
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# ---- Java (backend) -------------------------------------------------------
+[*.java]
+indent_size = 4
+
+# ---- Maven / XML ----------------------------------------------------------
+[*.{xml,pom}]
+indent_size = 2
+
+# ---- Web / frontend -------------------------------------------------------
+[*.{js,jsx,ts,tsx,json,css,scss,html,vue}]
+indent_size = 2
+
+# ---- YAML (compose, CI, k8s) ---------------------------------------------
+[*.{yml,yaml}]
+indent_size = 2
+
+# ---- Shell scripts --------------------------------------------------------
+[*.sh]
+indent_size = 2
+
+# ---- Markdown -------------------------------------------------------------
+# Preserve trailing spaces (used for line breaks in Markdown).
+[*.md]
+trim_trailing_whitespace = false
+
+# ---- Makefiles require real tabs -----------------------------------------
+[Makefile]
+indent_style = tab

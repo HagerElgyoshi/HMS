@@ -12,10 +12,11 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
     proxy: {
-      // All requests to /chatbot-api/* are forwarded to the AWS chatbot server.
-      // The browser only ever talks to localhost, so CORS is never triggered.
+      // Dev-only proxy for the AI chatbot. Target is read from the environment
+      // (VITE_CHATBOT_PROXY_TARGET, centralized in .env.production).
+      // If not set, the proxy block is effectively disabled (empty target).
       "/chatbot-api": {
-        target: "http://54.163.18.81:8000",
+        target: process.env.VITE_CHATBOT_PROXY_TARGET || "",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/chatbot-api/, ""),
       },

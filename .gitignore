@@ -1,0 +1,59 @@
+# =============================================================================
+#  Root .gitignore — Hospital Management System (monorepo)
+#  Covers backend (Java/Maven), frontend (Node/Vite), Docker, and tooling.
+# =============================================================================
+
+# ---- Environment & secrets -----------------------------------------------
+# Single source of truth is .env.production (placeholders only, tracked).
+# Any other env files (real/local overrides) stay OUT of version control.
+.env
+.env.*
+!.env.production
+*.pem
+*.key
+secrets/
+
+# ---- Backend: Java / Maven ------------------------------------------------
+target/
+*.class
+*.jar
+*.war
+*.ear
+!**/.mvn/wrapper/maven-wrapper.jar
+hs_err_pid*
+
+# ---- Frontend: Node / Vite ------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+coverage/
+*.local
+
+# ---- Logs -----------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---- Local run artifacts (root start.sh / stop.sh) ------------------------
+.run/
+
+# ---- IDE / editor ---------------------------------------------------------
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+
+# ---- OS junk --------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# ---- Docker ---------------------------------------------------------------
+# (Compose env files are covered by the .env rules above.)
