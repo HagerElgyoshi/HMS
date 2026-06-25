@@ -1,0 +1,58 @@
+# =============================================================================
+#  HMS Loki — Log Aggregation Values
+# =============================================================================
+
+namespace: monitoring
+
+loki:
+  # Single-binary mode for simplicity (scalable mode for production at scale)
+  deploymentMode: SingleBinary
+
+  loki:
+    auth_enabled: false
+
+    limits_config:
+      retention_period: 14d
+      max_query_length: 0h
+      max_entries_limit_per_query: 5000
+
+    storage:
+      type: filesystem
+
+    compactor:
+      retention_enabled: true
+      retention_delete_delay: 2h
+
+    schema_config:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+
+  singleBinary:
+    replicas: 1
+    persistence:
+      enabled: true
+      storageClass: gp3
+      size: 50Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  # Disable components not needed in single-binary mode
+  gateway:
+    enabled: false
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  backend:
+    replicas: 0

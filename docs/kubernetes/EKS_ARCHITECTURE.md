@@ -1,0 +1,69 @@
+# EKS Architecture — HMS
+
+## Cluster Topology
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                     Amazon EKS Cluster                          │
+│                     (hms-production)                            │
+│                                                                │
+│  ┌──────────────────── Namespace: hms-production ──────────┐   │
+│  │                                                          │   │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐              │   │
+│  │  │ Backend  │  │ Backend  │  │ Backend  │  (HPA: 2-6)   │   │
+│  │  │  Pod #1  │  │  Pod #2  │  │  Pod #3  │              │   │
+│  │  └────┬─────┘  └────┬─────┘  └────┬─────┘              │   │
+│  │       └──────────────┼──────────────┘                    │   │
+│  │                      │                                    │   │
+│  │              ┌───────▼───────┐                            │   │
+│  │              │ Backend Svc   │ ClusterIP :8080            │   │
+│  │              └───────────────┘                            │   │
+│  │                                                          │   │
+│  │  ┌──────────┐  ┌──────────┐                              │   │
+│  │  │Frontend  │  │Frontend  │  (HPA: 2-5)                  │   │
+│  │  │  Pod #1  │  │  Pod #2  │                              │   │
+│  │  └────┬─────┘  └────┬─────┘                              │   │
+│  │       └──────────────┘                                    │   │
+│  │              │                                            │   │
+│  │     ┌────────▼────────┐                                   │   │
+│  │     │ Frontend Svc    │ ClusterIP :80                     │   │
+│  │     └─────────────────┘                                   │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                            │                                     │
+│                   ┌────────▼────────┐                            │
+│                   │     Ingress     │ (AWS ALB)                  │
+│                   │  /api → backend │                            │
+│                   │  /   → frontend │                            │
+│                   └─────────────────┘                            │
+└────────────────────────────────────────────────────────────────┘
+          │                                          │
+          ▼                                          ▼
+   ┌──────────────┐                          ┌──────────────┐
+   │  Amazon RDS  │                          │  Amazon S3   │
+   │   (MySQL)    │                          │  (Uploads)   │
+   └──────────────┘                          └──────────────┘
+```
+
+## Node Group
+
+| Property | Value |
+|----------|-------|
+| Instance types | t3.medium |
+| Capacity | ON_DEMAND |
+| Min nodes | 2 |
+| Max nodes | 5 |
+| Desired | 2 |
+| Disk | 50 GB (gp3) |
+| Subnets | Private (3 AZs) |
+
+## Kubernetes Version
+
+- EKS: 1.29
+- Platform managed; auto-patches
+
+## IRSA (IAM Roles for Service Accounts)
+
+| Service Account | IAM Role | Purpose |
+|----------------|----------|---------|
+| `backend-sa` | Backend IRSA | S3 uploads, Secrets Manager |
+| `aws-load-balancer-controller` | LB Controller | Create/manage ALB |

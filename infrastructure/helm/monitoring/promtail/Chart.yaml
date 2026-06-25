@@ -1,0 +1,10 @@
+apiVersion: v2
+name: hms-promtail
+description: Promtail log collector for Hospital Management System
+type: application
+version: 1.0.0
+appVersion: "2.9.0"
+dependencies:
+  - name: promtail
+    version: "6.x.x"
+    repository: https://grafana.github.io/helm-charts

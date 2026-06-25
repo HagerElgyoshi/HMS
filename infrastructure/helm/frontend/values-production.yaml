@@ -1,0 +1,28 @@
+# =============================================================================
+#  HMS Frontend — Production Values Override
+# =============================================================================
+
+namespace: hms-production
+replicaCount: 3
+
+image:
+  repository: ""  # Set to ECR URL
+  tag: ""         # Set to Git SHA or semver tag
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 128Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 60
+
+podDisruptionBudget:
+  minAvailable: 2

@@ -1,0 +1,111 @@
+# =============================================================================
+#  HMS Backend — Default Helm Values
+#  Override in values-production.yaml for production deployment.
+# =============================================================================
+
+namespace: hms-production
+
+replicaCount: 2
+
+image:
+  repository: ""  # ECR URL injected at deploy time
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: backend-sa
+  annotations: {}
+  # eks.amazonaws.com/role-arn: <IRSA role ARN>
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+resources:
+  requests:
+    cpu: 256m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+  initialDelaySeconds: 90
+  periodSeconds: 15
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  minAvailable: 1
+
+# Environment variables sourced from ConfigMap and Secret
+# These map directly to .env.production variables
+env:
+  configMap:
+    SPRING_PROFILES_ACTIVE: production
+    SERVER_PORT: "8080"
+    JPA_DDL_AUTO: update
+    JPA_SHOW_SQL: "false"
+    JPA_FORMAT_SQL: "false"
+    LOGGING_LEVEL_ROOT: INFO
+    LOGGING_LEVEL_APP: INFO
+    UPLOAD_DIRECTORY: /app/uploads/
+    MULTIPART_MAX_FILE_SIZE: 20MB
+    MULTIPART_MAX_REQUEST_SIZE: 25MB
+
+  # Secret keys — values injected at deploy time (not stored here)
+  secretKeys:
+    - DATABASE_URL
+    - DATABASE_USERNAME
+    - DATABASE_PASSWORD
+    - JWT_SECRET
+    - JWT_ACCESS_TOKEN_EXPIRATION
+    - JWT_REFRESH_TOKEN_EXPIRATION
+    - CORS_ALLOWED_ORIGINS
+
+# Persistent volume for uploads (temporary — will migrate to S3)
+persistence:
+  enabled: true
+  storageClass: gp3
+  size: 10Gi
+  mountPath: /app/uploads
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: hms-grafana
+description: Grafana dashboards for Hospital Management System
+type: application
+version: 1.0.0
+appVersion: "10.4.0"
+dependencies:
+  - name: grafana
+    version: "7.x.x"
+    repository: https://grafana.github.io/helm-charts

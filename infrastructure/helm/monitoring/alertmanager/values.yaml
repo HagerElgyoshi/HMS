@@ -1,0 +1,13 @@
+# =============================================================================
+#  HMS Alertmanager — Routing Configuration
+#  Applied as a Secret that Alertmanager reads.
+# =============================================================================
+
+namespace: monitoring
+
+# Webhook/Slack/PagerDuty URLs — injected at deploy time
+slack_webhook_url: ""
+pagerduty_key: ""
+email_to: ""
+email_from: ""
+smtp_host: ""

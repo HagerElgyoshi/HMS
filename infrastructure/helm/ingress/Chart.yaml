@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hms-ingress
+description: Hospital Management System — AWS ALB Ingress
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

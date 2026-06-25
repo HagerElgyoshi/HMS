@@ -1,0 +1,97 @@
+# =============================================================================
+#  HMS Grafana — Values
+# =============================================================================
+
+namespace: monitoring
+
+grafana:
+  adminUser: admin
+  # adminPassword injected via secret at deploy time
+
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  # ── Datasources ────────────────────────────────────────────────────────────
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://kube-prometheus-stack-prometheus.monitoring:9090
+          access: proxy
+          isDefault: true
+          editable: false
+
+        - name: Loki
+          type: loki
+          url: http://hms-loki.monitoring:3100
+          access: proxy
+          editable: false
+
+        - name: Alertmanager
+          type: alertmanager
+          url: http://kube-prometheus-stack-alertmanager.monitoring:9093
+          access: proxy
+          editable: false
+
+  # ── Dashboard Providers ────────────────────────────────────────────────────
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: hms-cluster
+          orgId: 1
+          folder: "HMS - Cluster"
+          type: file
+          disableDeletion: true
+          editable: false
+          options:
+            path: /var/lib/grafana/dashboards/cluster
+
+        - name: hms-application
+          orgId: 1
+          folder: "HMS - Application"
+          type: file
+          disableDeletion: true
+          editable: false
+          options:
+            path: /var/lib/grafana/dashboards/application
+
+        - name: hms-jvm
+          orgId: 1
+          folder: "HMS - JVM"
+          type: file
+          disableDeletion: true
+          editable: false
+          options:
+            path: /var/lib/grafana/dashboards/jvm
+
+  # ── Dashboard Definitions (via ConfigMaps) ─────────────────────────────────
+  dashboardsConfigMaps:
+    cluster: hms-dashboards-cluster
+    application: hms-dashboards-application
+    jvm: hms-dashboards-jvm
+
+  # ── Ingress ────────────────────────────────────────────────────────────────
+  ingress:
+    enabled: false
+    # Enable via ArgoCD values override when ready:
+    # annotations:
+    #   kubernetes.io/ingress.class: alb
+    # hosts:
+    #   - grafana.hms.example.com
+
+  service:
+    type: ClusterIP
+    port: 3000

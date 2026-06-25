@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hms-alertmanager-config
+description: Alertmanager routing configuration for HMS
+type: application
+version: 1.0.0
+appVersion: "0.27.0"

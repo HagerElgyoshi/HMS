@@ -1,0 +1,30 @@
+# =============================================================================
+#  HMS Ingress — Default Values
+# =============================================================================
+
+namespace: hms-production
+
+host: ""  # e.g. hms.example.com — set at deploy time
+
+tls:
+  enabled: true
+  certificateArn: ""  # ACM certificate ARN
+
+annotations:
+  kubernetes.io/ingress.class: alb
+  alb.ingress.kubernetes.io/scheme: internet-facing
+  alb.ingress.kubernetes.io/target-type: ip
+  alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+  alb.ingress.kubernetes.io/ssl-redirect: "443"
+  alb.ingress.kubernetes.io/healthcheck-path: /actuator/health
+  alb.ingress.kubernetes.io/group.name: hms
+
+backend:
+  serviceName: hms-backend
+  servicePort: 8080
+  pathPrefix: /api
+
+frontend:
+  serviceName: hms-frontend
+  servicePort: 80
+  pathPrefix: /

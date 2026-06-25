@@ -1,0 +1,89 @@
+# =============================================================================
+#  HMS Prometheus — Values
+#  Configures kube-prometheus-stack for the HMS observability platform.
+# =============================================================================
+
+namespace: monitoring
+
+kube-prometheus-stack:
+  enabled: true
+
+  # ── Prometheus Server ──────────────────────────────────────────────────────
+  prometheus:
+    prometheusSpec:
+      retention: 15d
+      retentionSize: 10GB
+      scrapeInterval: 30s
+      evaluationInterval: 30s
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: gp3
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 50Gi
+      # Discover ServiceMonitors across all namespaces
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+
+  # ── Alertmanager ───────────────────────────────────────────────────────────
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      retention: 120h
+      storage:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: gp3
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 5Gi
+
+  # ── Grafana (disabled here — we deploy our own chart) ──────────────────────
+  grafana:
+    enabled: false
+
+  # ── Node Exporter ──────────────────────────────────────────────────────────
+  nodeExporter:
+    enabled: true
+
+  # ── kube-state-metrics ─────────────────────────────────────────────────────
+  kubeStateMetrics:
+    enabled: true
+
+  # ── Default rules ──────────────────────────────────────────────────────────
+  defaultRules:
+    create: true
+    rules:
+      alertmanager: true
+      etcd: true
+      general: true
+      k8s: true
+      kubeApiserver: true
+      kubeApiserverAvailability: true
+      kubeApiserverSlos: true
+      kubelet: true
+      kubeProxy: true
+      kubePrometheusGeneral: true
+      kubePrometheusNodeRecording: true
+      kubernetesApps: true
+      kubernetesResources: true
+      kubernetesStorage: true
+      kubernetesSystem: true
+      kubeScheduler: true
+      network: true
+      node: true
+      nodeExporterAlerting: true
+      nodeExporterRecording: true
+      prometheus: true
+      prometheusOperator: true

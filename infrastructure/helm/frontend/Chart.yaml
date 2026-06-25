@@ -1,0 +1,10 @@
+apiVersion: v2
+name: hms-frontend
+description: Hospital Management System — React Frontend (Nginx)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+dependencies:
+  - name: hms-common
+    version: "1.0.0"
+    repository: "file://../common"

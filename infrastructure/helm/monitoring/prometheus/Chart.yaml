@@ -1,0 +1,11 @@
+apiVersion: v2
+name: hms-prometheus
+description: Prometheus monitoring for Hospital Management System
+type: application
+version: 1.0.0
+appVersion: "2.51.0"
+dependencies:
+  - name: kube-prometheus-stack
+    version: "58.x.x"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: kube-prometheus-stack.enabled

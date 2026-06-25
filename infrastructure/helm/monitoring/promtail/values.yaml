@@ -1,0 +1,52 @@
+# =============================================================================
+#  HMS Promtail — Log Collection Values
+# =============================================================================
+
+namespace: monitoring
+
+promtail:
+  config:
+    lokiAddress: http://hms-loki.monitoring:3100/loki/api/v1/push
+
+    snippets:
+      # Pipeline stages: extract K8s metadata labels
+      pipelineStages:
+        - cri: {}
+        - multiline:
+            firstline: '^\d{4}-\d{2}-\d{2}'
+            max_wait_time: 3s
+        - labels:
+            namespace:
+            pod:
+            container:
+            node_name:
+        - match:
+            selector: '{namespace="hms-production"}'
+            stages:
+              - regex:
+                  expression: '^(?P<timestamp>\S+)\s+(?P<level>\w+)\s+.*'
+              - labels:
+                  level:
+
+      # Relabeling: add deployment and node labels
+      extraRelabelConfigs:
+        - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
+          target_label: component
+        - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_instance]
+          target_label: instance
+        - source_labels: [__meta_kubernetes_pod_node_name]
+          target_label: node
+
+  # ── Resources ──────────────────────────────────────────────────────────────
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # ── Tolerate all nodes (DaemonSet runs everywhere) ─────────────────────────
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists

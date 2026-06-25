@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hms-production
+  labels:
+    app.kubernetes.io/part-of: hms
+    environment: production
+---
+# Resource Quota — prevents runaway resource consumption
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: hms-quota
+  namespace: hms-production
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    pods: "50"
+    persistentvolumeclaims: "10"
+---
+# LimitRange — default resource limits for pods without explicit specs
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: hms-limits
+  namespace: hms-production
+spec:
+  limits:
+    - default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      type: Container
+---
+# Priority Class for critical workloads
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: hms-critical
+value: 1000000
+globalDefault: false
+description: "Priority class for HMS production workloads"

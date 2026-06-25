@@ -1,0 +1,21 @@
+# ServiceMonitor for Nginx Frontend (stub metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hms-frontend
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: hms
+    app.kubernetes.io/component: frontend
+spec:
+  namespaceSelector:
+    matchNames:
+      - hms-production
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  endpoints:
+    - port: http
+      path: /stub_status
+      interval: 30s
+      scrapeTimeout: 5s

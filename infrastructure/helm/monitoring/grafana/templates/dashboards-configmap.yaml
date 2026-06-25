@@ -1,0 +1,116 @@
+# =============================================================================
+#  Grafana Dashboard ConfigMaps
+#  Each ConfigMap provides dashboard JSON for a specific folder.
+#  Dashboard JSON definitions are in the dashboards/ directory.
+# =============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hms-dashboards-cluster
+  namespace: {{ .Values.namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  cluster-overview.json: |
+    {
+      "annotations": {"list": []},
+      "title": "HMS - Cluster Overview",
+      "uid": "hms-cluster-overview",
+      "panels": [
+        {"title": "Total Nodes", "type": "stat", "targets": [{"expr": "count(kube_node_info)"}]},
+        {"title": "Total Pods", "type": "stat", "targets": [{"expr": "count(kube_pod_info{namespace='hms-production'})"}]},
+        {"title": "CPU Usage %", "type": "gauge", "targets": [{"expr": "sum(rate(container_cpu_usage_seconds_total{namespace='hms-production'}[5m])) / sum(kube_pod_container_resource_requests{namespace='hms-production',resource='cpu'}) * 100"}]},
+        {"title": "Memory Usage %", "type": "gauge", "targets": [{"expr": "sum(container_memory_working_set_bytes{namespace='hms-production'}) / sum(kube_pod_container_resource_limits{namespace='hms-production',resource='memory'}) * 100"}]},
+        {"title": "Pod Restarts", "type": "timeseries", "targets": [{"expr": "sum(increase(kube_pod_container_status_restarts_total{namespace='hms-production'}[1h])) by (pod)"}]},
+        {"title": "Network I/O", "type": "timeseries", "targets": [{"expr": "sum(rate(container_network_receive_bytes_total{namespace='hms-production'}[5m])) by (pod)", "legendFormat": "rx-{{pod}}"}, {"expr": "sum(rate(container_network_transmit_bytes_total{namespace='hms-production'}[5m])) by (pod)", "legendFormat": "tx-{{pod}}"}]}
+      ],
+      "schemaVersion": 38,
+      "version": 1
+    }
+  node-resources.json: |
+    {
+      "title": "HMS - Node Resources",
+      "uid": "hms-node-resources",
+      "panels": [
+        {"title": "Node CPU", "type": "timeseries", "targets": [{"expr": "sum(rate(node_cpu_seconds_total{mode!='idle'}[5m])) by (instance) / count(node_cpu_seconds_total{mode='idle'}) by (instance) * 100"}]},
+        {"title": "Node Memory", "type": "timeseries", "targets": [{"expr": "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100"}]},
+        {"title": "Node Disk", "type": "timeseries", "targets": [{"expr": "(node_filesystem_size_bytes{mountpoint='/'} - node_filesystem_avail_bytes{mountpoint='/'}) / node_filesystem_size_bytes{mountpoint='/'} * 100"}]},
+        {"title": "Node Network", "type": "timeseries", "targets": [{"expr": "rate(node_network_receive_bytes_total{device!='lo'}[5m])"}]}
+      ],
+      "schemaVersion": 38
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hms-dashboards-application
+  namespace: {{ .Values.namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  backend-performance.json: |
+    {
+      "title": "HMS - Backend Performance",
+      "uid": "hms-backend-perf",
+      "panels": [
+        {"title": "Request Rate", "type": "timeseries", "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{namespace='hms-production'}[5m])) by (uri)"}]},
+        {"title": "P95 Latency", "type": "timeseries", "targets": [{"expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{namespace='hms-production'}[5m])) by (le, uri))"}]},
+        {"title": "Error Rate", "type": "timeseries", "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{namespace='hms-production',status=~'5..'}[5m])) by (uri)"}]},
+        {"title": "Active Connections (HikariCP)", "type": "stat", "targets": [{"expr": "hikaricp_connections_active{namespace='hms-production'}"}]},
+        {"title": "Pending Connections", "type": "stat", "targets": [{"expr": "hikaricp_connections_pending{namespace='hms-production'}"}]},
+        {"title": "DB Query Time", "type": "timeseries", "targets": [{"expr": "rate(hikaricp_connections_usage_seconds_sum{namespace='hms-production'}[5m])"}]},
+        {"title": "HTTP Status Distribution", "type": "piechart", "targets": [{"expr": "sum(increase(http_server_requests_seconds_count{namespace='hms-production'}[1h])) by (status)"}]}
+      ],
+      "schemaVersion": 38
+    }
+  frontend-performance.json: |
+    {
+      "title": "HMS - Frontend Performance",
+      "uid": "hms-frontend-perf",
+      "panels": [
+        {"title": "Nginx Active Connections", "type": "stat", "targets": [{"expr": "nginx_connections_active{namespace='hms-production'}"}]},
+        {"title": "Requests/sec", "type": "timeseries", "targets": [{"expr": "rate(nginx_http_requests_total{namespace='hms-production'}[5m])"}]},
+        {"title": "Pod CPU", "type": "timeseries", "targets": [{"expr": "rate(container_cpu_usage_seconds_total{namespace='hms-production',container='frontend'}[5m])"}]},
+        {"title": "Pod Memory", "type": "timeseries", "targets": [{"expr": "container_memory_working_set_bytes{namespace='hms-production',container='frontend'}"}]}
+      ],
+      "schemaVersion": 38
+    }
+  autoscaling.json: |
+    {
+      "title": "HMS - Autoscaling",
+      "uid": "hms-autoscaling",
+      "panels": [
+        {"title": "Backend Replicas", "type": "timeseries", "targets": [{"expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace='hms-production',horizontalpodautoscaler=~'.*backend.*'}"}, {"expr": "kube_horizontalpodautoscaler_spec_max_replicas{namespace='hms-production',horizontalpodautoscaler=~'.*backend.*'}", "legendFormat": "max"}]},
+        {"title": "Frontend Replicas", "type": "timeseries", "targets": [{"expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace='hms-production',horizontalpodautoscaler=~'.*frontend.*'}"}]},
+        {"title": "CPU Utilization vs Target", "type": "timeseries", "targets": [{"expr": "kube_horizontalpodautoscaler_status_current_metrics_average_value{namespace='hms-production'}"}]}
+      ],
+      "schemaVersion": 38
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hms-dashboards-jvm
+  namespace: {{ .Values.namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  jvm-metrics.json: |
+    {
+      "title": "HMS - JVM Metrics",
+      "uid": "hms-jvm",
+      "panels": [
+        {"title": "Heap Used", "type": "timeseries", "targets": [{"expr": "jvm_memory_used_bytes{namespace='hms-production',area='heap'}"}]},
+        {"title": "Heap Max", "type": "stat", "targets": [{"expr": "jvm_memory_max_bytes{namespace='hms-production',area='heap'}"}]},
+        {"title": "GC Pauses", "type": "timeseries", "targets": [{"expr": "rate(jvm_gc_pause_seconds_sum{namespace='hms-production'}[5m])"}]},
+        {"title": "GC Count", "type": "timeseries", "targets": [{"expr": "rate(jvm_gc_pause_seconds_count{namespace='hms-production'}[5m])"}]},
+        {"title": "Live Threads", "type": "stat", "targets": [{"expr": "jvm_threads_live_threads{namespace='hms-production'}"}]},
+        {"title": "Thread States", "type": "timeseries", "targets": [{"expr": "jvm_threads_states_threads{namespace='hms-production'}"}]},
+        {"title": "Classes Loaded", "type": "stat", "targets": [{"expr": "jvm_classes_loaded_classes{namespace='hms-production'}"}]},
+        {"title": "Non-Heap Memory", "type": "timeseries", "targets": [{"expr": "jvm_memory_used_bytes{namespace='hms-production',area='nonheap'}"}]}
+      ],
+      "schemaVersion": 38
+    }

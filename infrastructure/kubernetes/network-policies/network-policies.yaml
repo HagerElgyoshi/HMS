@@ -1,0 +1,102 @@
+# =============================================================================
+#  Network Policies — HMS Production
+#  Implements least-privilege network access between components.
+# =============================================================================
+
+# Default: deny all ingress in the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: hms-production
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+
+---
+# Allow ingress to backend from frontend and ALB
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-ingress
+  namespace: hms-production
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    # From frontend pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 8080
+    # From ALB (ingress controller)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# Allow ingress to frontend from ALB only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-ingress
+  namespace: hms-production
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 80
+
+---
+# Allow backend egress to RDS and DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-egress
+  namespace: hms-production
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  policyTypes:
+    - Egress
+  egress:
+    # DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # RDS MySQL
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/16  # VPC CIDR — RDS is within the VPC
+      ports:
+        - protocol: TCP
+          port: 3306
+    # HTTPS (for AWS services: S3, Secrets Manager)
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
