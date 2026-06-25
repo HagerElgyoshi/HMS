@@ -1,0 +1,116 @@
+# =============================================================================
+#  Deploy Pipeline — GitOps Deployment via ArgoCD
+#  Triggered after successful build OR manually.
+#  Updates the Helm values to trigger ArgoCD sync.
+# =============================================================================
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build & Push"]
+    types: [completed]
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+      version:
+        description: "Image version to deploy (e.g. v1.0.1)"
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION: us-east-1
+  ARGOCD_APP_BACKEND: hms-backend
+  ARGOCD_APP_FRONTEND: hms-frontend
+
+jobs:
+  deploy:
+    name: Deploy to EKS (GitOps)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            # Get latest version from git tags
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.1")
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update ArgoCD application manifests
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "🚀 Deploying version: $VERSION"
+
+          # Update backend image tag in ArgoCD app
+          sed -i "s|targetRevision:.*|targetRevision: ${VERSION}|" \
+            infrastructure/argocd/apps/backend.yaml 2>/dev/null || true
+
+          # Update frontend image tag in ArgoCD app
+          sed -i "s|targetRevision:.*|targetRevision: ${VERSION}|" \
+            infrastructure/argocd/apps/frontend.yaml 2>/dev/null || true
+
+          # Update Helm values with new image tags
+          cat > /tmp/image-override.yaml << EOF
+          image:
+            tag: "${VERSION}"
+          EOF
+
+      - name: Commit and push version update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || \
+            git commit -m "chore(deploy): update to ${{ steps.version.outputs.version }} [skip ci]"
+          git push
+
+      - name: Tag release
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+
+      - name: Create GitHub Release
+        if: github.event_name != 'workflow_dispatch'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+      - name: Notify ArgoCD to sync
+        run: |
+          echo "✅ Git updated. ArgoCD will auto-sync within configured interval."
+          echo "   To force sync immediately:"
+          echo "   argocd app sync ${{ env.ARGOCD_APP_BACKEND }}"
+          echo "   argocd app sync ${{ env.ARGOCD_APP_FRONTEND }}"

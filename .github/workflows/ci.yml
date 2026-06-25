@@ -1,0 +1,114 @@
+# =============================================================================
+#  CI Pipeline — Continuous Integration
+#  Triggered on every Pull Request to main and develop.
+#  Validates code quality, builds, tests, and lints. No deployment.
+# =============================================================================
+
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - ".editorconfig"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "17"
+  NODE_VERSION: "20"
+
+jobs:
+  # ── Backend CI ─────────────────────────────────────────────────────────────
+  backend:
+    name: Backend (Java ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: ["17"]
+    defaults:
+      run:
+        working-directory: Back-End/Back-End/hospital-management-system-main
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: temurin
+          cache: maven
+
+      - name: Validate Maven wrapper
+        run: mvn --version
+
+      - name: Check code formatting
+        run: mvn -B validate
+
+      - name: Compile
+        run: mvn -B compile -DskipTests
+
+      - name: Run unit tests
+        run: mvn -B test
+
+      - name: Package (verify build artifact)
+        run: mvn -B package -DskipTests
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: Back-End/Back-End/hospital-management-system-main/target/surefire-reports/
+
+  # ── Frontend CI ────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ["20"]
+    defaults:
+      run:
+        working-directory: Front-End/HMS_Front
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: Front-End/HMS_Front/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Production build
+        env:
+          VITE_API_BASE_URL: https://placeholder.example.com
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: Front-End/HMS_Front/dist/
+          retention-days: 1

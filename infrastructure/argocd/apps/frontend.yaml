@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hms-frontend
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: hms
+    app.kubernetes.io/component: frontend
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: hms
+
+  source:
+    repoURL: https://github.com/OWNER/hospital-management-system.git
+    targetRevision: main
+    path: infrastructure/helm/frontend
+
+    helm:
+      valueFiles:
+        - values-production.yaml
+      parameters:
+        - name: image.tag
+          value: latest
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hms-production
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=false
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10
