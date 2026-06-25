@@ -1,0 +1,102 @@
+# =============================================================================
+#  Docker Compose — DEVELOPMENT
+#  Services: frontend + backend + MySQL
+#
+#  Single configuration source: ../.env.production
+#  Run:  docker compose -f docker-compose.dev.yml up --build
+#
+#  NOTE: Set DATABASE_URL=jdbc:mysql://db:3306/hms_backend in .env.production
+#        for the containers to communicate via the Docker network.
+# =============================================================================
+
+services:
+  # ── MySQL (development only) ────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: hms-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+      MYSQL_DATABASE: hms_backend
+      MYSQL_USER: ${DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - hms-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - hms-network
+
+  # ── Backend (Spring Boot) ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ../Back-End/Back-End/hospital-management-system-main
+      dockerfile: ../../../backend-docker/Dockerfile
+    container_name: hms-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ../.env.production
+    environment:
+      # Override DATABASE_URL to point at the db service within Docker network
+      DATABASE_URL: jdbc:mysql://db:3306/hms_backend
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    volumes:
+      # Upload volume — will migrate to S3 in a future phase
+      - hms-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - hms-network
+
+  # ── Frontend (React + Nginx) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../Front-End/HMS_Front
+      dockerfile: ../../frontend-docker/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_CHATBOT_BASE_URL: ${VITE_CHATBOT_BASE_URL:-}
+    container_name: hms-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - hms-network
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  hms-mysql-data:
+    driver: local
+  hms-uploads:
+    driver: local
+    # NOTE: Upload volume is temporary. In production (AWS), file storage
+    # will migrate to Amazon S3 — eliminating the need for persistent volumes.
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  hms-network:
+    name: hms-network
+    driver: bridge

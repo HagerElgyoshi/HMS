@@ -1,0 +1,37 @@
+# =============================================================================
+#  Backend .dockerignore — keeps the build context lean
+#  Place this in the build context root (Back-End/Back-End/hospital-management-system-main)
+# =============================================================================
+
+# Build output (fully regenerated inside Docker)
+target/
+
+# IDE / editor
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Maven wrapper jar (already in base image)
+.mvn/wrapper/maven-wrapper.jar
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# Logs / temp
+*.log
+*.tmp
+logs/
+
+# Documentation (not needed in image)
+README.md
+docs/
+[Help

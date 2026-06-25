@@ -1,0 +1,45 @@
+# =============================================================================
+#  Frontend .dockerignore — keeps the build context lean
+#  Place this in the build context root (Front-End/HMS_Front)
+# =============================================================================
+
+# Dependencies & build output (regenerated inside Docker)
+node_modules/
+dist/
+dist-ssr/
+build/
+
+# Local env files (configuration comes from .env.production via build args)
+.env
+.env.*
+
+# IDE / editor
+.idea/
+.vscode/
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# Lock files from other package managers (we use npm only)
+bun.lock
+bun.lockb
+yarn.lock
+pnpm-lock.yaml
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# VCS
+.git/
+.gitignore
+
+# Not needed in image
+README.md
+docs/
+coverage/
+vitest.config.ts

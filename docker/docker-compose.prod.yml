@@ -1,0 +1,94 @@
+# =============================================================================
+#  Docker Compose — PRODUCTION
+#  Services: frontend + backend (NO database — external RDS/managed MySQL)
+#
+#  Single configuration source: ../.env.production
+#  DATABASE_URL must point to the external database host.
+#
+#  Run:  docker compose -f docker-compose.prod.yml up -d
+# =============================================================================
+
+services:
+  # ── Backend (Spring Boot) ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ../Back-End/Back-End/hospital-management-system-main
+      dockerfile: ../../../backend-docker/Dockerfile
+    image: hms-backend:latest
+    container_name: hms-backend
+    restart: always
+    env_file:
+      - ../.env.production
+    # No port published to host — only exposed internally on the Docker network.
+    # Nginx (frontend) reverse-proxies /api → backend:8080.
+    expose:
+      - "8080"
+    volumes:
+      # Upload volume — TEMPORARY. Will migrate to Amazon S3 when
+      # cloud infrastructure is provisioned. Once S3 is active, remove this
+      # volume and update the application to use the S3 SDK.
+      - hms-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    networks:
+      - hms-network
+
+  # ── Frontend (React + Nginx) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../Front-End/HMS_Front
+      dockerfile: ../../frontend-docker/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_CHATBOT_BASE_URL: ${VITE_CHATBOT_BASE_URL:-}
+    image: hms-frontend:latest
+    container_name: hms-frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - hms-network
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  hms-uploads:
+    driver: local
+    # FUTURE: Remove this volume entirely once uploads migrate to Amazon S3.
+    # The S3 integration will handle durability, replication, and CDN delivery.
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  hms-network:
+    name: hms-network
+    driver: bridge
+
+# =============================================================================
+# ARCHITECTURE NOTES:
+#
+# ┌───────────┐     :80/443      ┌──────────┐     :8080      ┌──────────────┐
+# │  Client   │ ───────────────► │  Nginx   │ ─────────────► │  Spring Boot │
+# │ (Browser) │                  │(frontend)│  /api proxy    │  (backend)   │
+# └───────────┘                  └──────────┘                └──────┬───────┘
+#                                                                    │
+#                                                     ┌──────────────▼─────────┐
+#                                                     │  External MySQL (RDS)  │
+#                                                     │  via DATABASE_URL      │
+#                                                     └────────────────────────┘
+#
+# Database is EXTERNAL — provisioned separately (RDS, managed MySQL, etc.)
+# No `db` service in production. All DB config comes from .env.production.
+# =============================================================================
