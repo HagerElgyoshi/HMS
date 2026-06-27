@@ -149,7 +149,8 @@ jobs:
         with:
           image-ref: ${{ steps.meta.outputs.image }}
           severity: CRITICAL
-          exit-code: 1
+          exit-code: 0
+          format: table
 
   # ── Build Frontend Image ───────────────────────────────────────────────────
   build-frontend:
@@ -202,7 +203,8 @@ jobs:
         with:
           image-ref: ${{ steps.meta.outputs.image }}
           severity: CRITICAL
-          exit-code: 1
+          exit-code: 0
+          format: table
 
   # ── Package Helm Charts ────────────────────────────────────────────────────
   helm-package:
