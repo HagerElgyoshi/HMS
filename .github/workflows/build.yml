@@ -46,14 +46,14 @@ jobs:
         run: |
           # Get latest tag or default to v0.0.0
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          # Increment patch for every main push (CI determines bump level)
+          # Use commit count since last tag as patch number (guarantees uniqueness)
           MAJOR=$(echo "$LATEST_TAG" | sed 's/v//' | cut -d. -f1)
           MINOR=$(echo "$LATEST_TAG" | sed 's/v//' | cut -d. -f2)
-          PATCH=$(echo "$LATEST_TAG" | sed 's/v//' | cut -d. -f3)
-          NEW_PATCH=$((PATCH + 1))
-          VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          # Count commits since last tag (or total commits if no tag exists)
+          COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "1")
+          VERSION="v${MAJOR}.${MINOR}.${COMMIT_COUNT}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "📦 Version: $VERSION"
+          echo "📦 Version: $VERSION (commits: $COMMIT_COUNT)"
 
   # ── Security Scanning ──────────────────────────────────────────────────────
   security:
