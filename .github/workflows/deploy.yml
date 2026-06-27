@@ -1,7 +1,7 @@
 # =============================================================================
-#  Deploy Pipeline — GitOps Deployment via ArgoCD
-#  Triggered after successful build OR manually.
-#  Updates the Helm values to trigger ArgoCD sync.
+#  Deploy Pipeline — GitOps via ArgoCD
+#  Reads the EXACT version from the Build workflow (single source of truth).
+#  Never recalculates the version. Never invents a new one.
 # =============================================================================
 
 name: Deploy
@@ -14,15 +14,8 @@ on:
 
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Target environment"
-        required: true
-        default: "production"
-        type: choice
-        options:
-          - production
       version:
-        description: "Image version to deploy (e.g. v1.0.1)"
+        description: "Exact image version to deploy (e.g. v0.1.48)"
         required: true
         type: string
 
@@ -32,8 +25,6 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ARGOCD_APP_BACKEND: hms-backend
-  ARGOCD_APP_FRONTEND: hms-frontend
 
 jobs:
   deploy:
@@ -45,72 +36,99 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Get version from Build artifact or manual input ────────────────────
+      - name: Download version artifact
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        with:
+          name: build-version
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Determine version
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ -f version.txt ]; then
+            VERSION=$(cat version.txt | tr -d '\n')
           else
-            # Get latest version from git tags
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.1")
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "❌ ERROR: No version found. Cannot deploy."
+            exit 1
           fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "══════════════════════════════════════"
+          echo "🚀 Deploying version: $VERSION"
+          echo "══════════════════════════════════════"
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Update ArgoCD application manifests
+      # ── Update Helm values with the exact image tag ────────────────────────
+      - name: Update image tags in Helm values
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          echo "🚀 Deploying version: $VERSION"
 
-          # Update backend image tag in ArgoCD app
-          sed -i "s|targetRevision:.*|targetRevision: ${VERSION}|" \
-            infrastructure/argocd/apps/backend.yaml 2>/dev/null || true
+          # Update backend values-production.yaml image tag
+          sed -i "s|^  tag:.*|  tag: \"$VERSION\"|" \
+            infrastructure/helm/backend/values-production.yaml 2>/dev/null || true
 
-          # Update frontend image tag in ArgoCD app
-          sed -i "s|targetRevision:.*|targetRevision: ${VERSION}|" \
-            infrastructure/argocd/apps/frontend.yaml 2>/dev/null || true
+          # Update frontend values-production.yaml image tag
+          sed -i "s|^  tag:.*|  tag: \"$VERSION\"|" \
+            infrastructure/helm/frontend/values-production.yaml 2>/dev/null || true
 
-          # Update Helm values with new image tags
-          cat > /tmp/image-override.yaml << EOF
-          image:
-            tag: "${VERSION}"
-          EOF
+          echo "✅ Helm values updated to version: $VERSION"
 
-      - name: Commit and push version update
+      # ── Commit version update ──────────────────────────────────────────────
+      - name: Commit and push
         run: |
+          VERSION="${{ steps.version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet || \
-            git commit -m "chore(deploy): update to ${{ steps.version.outputs.version }} [skip ci]"
-          git push
+          if git diff --cached --quiet; then
+            echo "ℹ️ No changes to commit (version already up to date)"
+          else
+            git commit -m "chore(deploy): update image tag to $VERSION [skip ci]"
+            git push
+          fi
 
-      - name: Tag release
-        if: github.event_name != 'workflow_dispatch'
+      # ── Tag release (idempotent — skip if exists) ──────────────────────────
+      - name: Create Git tag
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          git tag -a "$VERSION" -m "Release $VERSION"
-          git push origin "$VERSION"
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "ℹ️ Tag $VERSION already exists — skipping"
+          else
+            git tag -a "$VERSION" -m "Release $VERSION"
+            git push origin "$VERSION"
+            echo "✅ Tag $VERSION created and pushed"
+          fi
 
+      # ── GitHub Release (idempotent — skip if exists) ────────────────────────
       - name: Create GitHub Release
-        if: github.event_name != 'workflow_dispatch'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           generate_release_notes: true
-          draft: false
-          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true  # Skip if release already exists
 
-      - name: Notify ArgoCD to sync
+      # ── Validation ─────────────────────────────────────────────────────────
+      - name: Validate deployment consistency
         run: |
-          echo "✅ Git updated. ArgoCD will auto-sync within configured interval."
-          echo "   To force sync immediately:"
-          echo "   argocd app sync ${{ env.ARGOCD_APP_BACKEND }}"
-          echo "   argocd app sync ${{ env.ARGOCD_APP_FRONTEND }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "══════════════════════════════════════"
+          echo "✅ Deployment Summary"
+          echo "   Version:        $VERSION"
+          echo "   Backend Image:  hms/backend:$VERSION"
+          echo "   Frontend Image: hms/frontend:$VERSION"
+          echo "   Helm Version:   ${VERSION#v}"
+          echo "   Git Tag:        $VERSION"
+          echo "   GitHub Release: $VERSION"
+          echo "══════════════════════════════════════"
+          echo ""
+          echo "🔄 ArgoCD will auto-sync within configured interval."
+          echo "   ArgoCD Image Updater will detect the new tag."
