@@ -32,3 +32,14 @@ output "eks_cluster_name" {
 output "eks_endpoint" {
   value = module.eks.cluster_endpoint
 }
+
+
+output "chatbot_endpoint_name" {
+  description = "SageMaker chatbot endpoint name"
+  value       = module.sagemaker.endpoint_name
+}
+
+output "chatbot_endpoint_url" {
+  description = "SageMaker chatbot invocation URL"
+  value       = module.sagemaker.endpoint_url
+}

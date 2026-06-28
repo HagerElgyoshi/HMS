@@ -104,3 +104,22 @@ module "eks" {
   max_nodes          = 3
   tags               = local.common_tags
 }
+
+
+# ── SageMaker (AI Chatbot — HakimAI) ────────────────────────────────────────
+# IMPORTANT: Build and push the chatbot Docker image to ECR BEFORE applying.
+# Command: docker build -f ai_chatbot/Dockerfile.sagemaker -t hms/chatbot ai_chatbot/
+#          docker push <ECR_URL>/hms/chatbot:v1.0.0
+#
+# Then set: var.chatbot_image_uri = "<ECR_URL>/hms/chatbot:v1.0.0"
+module "sagemaker" {
+  source = "../../modules/sagemaker"
+
+  project_name      = var.project_name
+  environment       = var.environment
+  chatbot_image_uri = var.chatbot_image_uri
+  instance_type     = "ml.g4dn.xlarge"
+  instance_count    = 1
+  enable_autoscaling = false
+  tags              = local.common_tags
+}

@@ -47,3 +47,10 @@ variable "rds_multi_az" {
   type        = bool
   default     = false
 }
+
+
+variable "chatbot_image_uri" {
+  description = "ECR image URI for the AI chatbot (HakimAI)"
+  type        = string
+  default     = "529088275461.dkr.ecr.us-east-1.amazonaws.com/hms/chatbot:v1.0.0"
+}
