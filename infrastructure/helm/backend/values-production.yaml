@@ -8,7 +8,7 @@ replicaCount: 3
 
 image:
   repository: ""  # Set to ECR URL: <account>.dkr.ecr.<region>.amazonaws.com/hms/backend
-  tag: "v0.1.46"
+  tag: "v0.1.50"
   pullPolicy: Always
 
 serviceAccount:
