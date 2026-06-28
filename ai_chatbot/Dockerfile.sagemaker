@@ -1,0 +1,36 @@
+# =============================================================================
+#  HakimAI Chatbot — SageMaker Inference Container
+#  Based on NVIDIA CUDA for GPU support on ml.g4dn.xlarge
+# =============================================================================
+
+FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Install Python 3.10
+RUN apt-get update && apt-get install -y \
+    python3.10 python3.10-venv python3-pip \
+    build-essential git curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.10 /usr/bin/python
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY ./app ./app
+COPY ./medical_qdrant_db ./medical_qdrant_db
+
+# SageMaker expects the container to serve on port 8080
+ENV PORT=8000
+EXPOSE 8000
+
+# Health check for SageMaker/K8s
+HEALTHCHECK --interval=60s --timeout=10s --start-period=300s --retries=3 \
+  CMD curl -f http://localhost:8000/docs || exit 1
+
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

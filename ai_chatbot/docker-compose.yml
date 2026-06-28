@@ -1,0 +1,27 @@
+services:
+  medical_ai_api:
+    build: .
+    container_name: qwen_medical_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Tells Python where to find the Qdrant database folder
+      - QDRANT_PATH=/app/medical_qdrant_db
+      # Tells HuggingFace where to save downloaded models
+      - HF_HOME=/root/.cache/huggingface
+    volumes:
+      # Mounts your local database folder directly into the container
+      - ./medical_qdrant_db:/app/medical_qdrant_db
+      # Saves the heavy AI models safely outside the container
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  huggingface_cache:
