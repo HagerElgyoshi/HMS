@@ -29,16 +29,9 @@ def lambda_handler(event, context):
                 "body": json.dumps({"error": "Missing 'question' field"})
             }
 
-        # Format for HuggingFace TGI (SageMaker)
+        # Format for our custom FastAPI chatbot (expects {"question": "..."})
         payload = {
-            "inputs": question,
-            "parameters": {
-                "max_new_tokens": 256,
-                "temperature": 0.6,
-                "top_p": 0.8,
-                "do_sample": True,
-                "repetition_penalty": 1.1
-            }
+            "question": question
         }
 
         # Invoke SageMaker endpoint
@@ -48,26 +41,16 @@ def lambda_handler(event, context):
             Body=json.dumps(payload)
         )
 
-        # Parse SageMaker response
+        # Parse SageMaker response (our custom app returns full JSON)
         result = json.loads(response["Body"].read().decode())
 
-        # TGI returns [{"generated_text": "..."}]
-        if isinstance(result, list) and len(result) > 0:
-            answer = result[0].get("generated_text", "")
-        else:
-            answer = str(result)
+        # Our app returns: {"question":..., "answer":..., "source":..., ...}
+        answer = result.get("answer", "")
 
         return {
             "statusCode": 200,
             "headers": cors_headers(),
-            "body": json.dumps({
-                "question": question,
-                "answer": answer,
-                "source": "HakimAI (SageMaker)",
-                "page": "",
-                "score": 0.0,
-                "retrieved_chunks": []
-            }, ensure_ascii=False)
+            "body": json.dumps(result, ensure_ascii=False)
         }
 
     except sagemaker_runtime.exceptions.ModelError as e:
