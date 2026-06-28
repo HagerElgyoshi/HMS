@@ -6,8 +6,8 @@ namespace: hms-production
 replicaCount: 3
 
 image:
-  repository: ""  # Set to ECR URL
-  tag: "v0.1.37"
+  repository: "529088275461.dkr.ecr.us-east-1.amazonaws.com/hms/frontend"
+  tag: "81ec71a"
   pullPolicy: Always
 
 resources:
