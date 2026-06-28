@@ -1,6 +1,6 @@
 # =============================================================================
-#  HakimAI Chatbot — SageMaker Inference Container
-#  Based on NVIDIA CUDA for GPU support on ml.g4dn.xlarge
+#  HakimAI Chatbot — SageMaker Compatible Container
+#  SageMaker calls `serve` or the container ENTRYPOINT to start inference.
 # =============================================================================
 
 FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     python3.10 python3.10-venv python3-pip \
     build-essential git curl \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.10 /usr/bin/python
+    && ln -sf /usr/bin/python3.10 /usr/bin/python \
+    && ln -sf /usr/bin/python3.10 /usr/bin/python3
 
 WORKDIR /app
 
@@ -21,18 +22,20 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and data
 COPY ./app ./app
 COPY ./medical_qdrant_db ./medical_qdrant_db
 
-# SageMaker expects the container to serve on port 8080
-ENV PORT=8000
-EXPOSE 8000
+# SageMaker requires a `serve` script at PATH
+# This script starts the FastAPI server
+RUN echo '#!/bin/bash\nexec python -m uvicorn app.main:app --host 0.0.0.0 --port 8080' > /usr/local/bin/serve \
+    && chmod +x /usr/local/bin/serve
 
-# Health check for SageMaker/K8s
-HEALTHCHECK --interval=60s --timeout=10s --start-period=300s --retries=3 \
-  CMD curl -f http://localhost:8000/docs || exit 1
+# SageMaker uses port 8080 for inference
+ENV PORT=8080
+EXPOSE 8080
 
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# SageMaker health check endpoint: GET /ping must return 200
+# We'll add this in the app or use the FastAPI docs endpoint
 
-# Rebuild trigger
+ENTRYPOINT ["serve"]

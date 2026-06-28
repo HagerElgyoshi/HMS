@@ -64,6 +64,18 @@ print("AI Engine Online and Ready.")
 
 app = FastAPI(title="Tawkeed Medical RAG API", version="1.0")
 
+
+# SageMaker health check — must return 200 on GET /ping
+@app.get("/ping")
+async def ping():
+    return {"status": "healthy"}
+
+
+@app.get("/")
+async def root():
+    return {"service": "HakimAI", "status": "online"}
+
+
 class ChatRequest(BaseModel):
     question: str
 
