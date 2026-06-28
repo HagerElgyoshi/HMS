@@ -7,7 +7,7 @@ replicaCount: 3
 
 image:
   repository: "529088275461.dkr.ecr.us-east-1.amazonaws.com/hms/frontend"
-  tag: "81ec71a"
+  tag: "v0.1.40"
   pullPolicy: Always
 
 resources:
