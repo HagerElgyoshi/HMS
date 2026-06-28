@@ -61,8 +61,8 @@ jobs:
         id: version
         run: |
           SHA=$(git rev-parse --short HEAD)
-          COUNT=$(git rev-list --count HEAD -- ai_chatbot/)
-          VERSION="v1.0.${COUNT}"
+          COUNT=$(git rev-list --count HEAD)
+          VERSION="chatbot-v1.0.${COUNT}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "📦 Chatbot version: $VERSION ($SHA)"
