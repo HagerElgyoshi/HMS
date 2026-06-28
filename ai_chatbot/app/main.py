@@ -7,7 +7,7 @@ import transformers.utils.import_utils
 def is_torch_fx_available():
     """Deprecated: kept for backwards compatibility with trust_remote_code models."""
     return True
-
+ 
 # 3. Inject it into the module
 transformers.utils.import_utils.is_torch_fx_available = is_torch_fx_available
 transformers.utils.is_torch_fx_available = is_torch_fx_available
