@@ -70,3 +70,4 @@ Back-End/src/target/
 *.tfstate
 *.tfstate.backup
 /docs/study
+deploy
